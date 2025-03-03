@@ -157,7 +157,6 @@ class ZhihuExtractor:
         res = ZhihuContent()
         res.content_id = article.get("id")
         res.content_type = article.get("type")
-        # Extract images from content
         res.images = []
         res.content_text = extract_text_from_html(article.get("content", ""), res.images)
         res.content_url = f"{zhihu_constant.ZHIHU_ZHUANLAN_URL}/p/{res.content_id}"
