@@ -8,17 +8,13 @@
 # 详细许可条款请参阅项目根目录下的LICENSE文件。
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
-from config import *
+# 快手平台配置
 
-# 小红书平台配置
-SORT_TYPE = "popularity_descending"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
-CRAWLER_MAX_SLEEP_SEC = 2
-XHS_SPECIFIED_NOTE_URL_LIST = [
-    "https://www.xiaohongshu.com/explore/66fad51c000000001b0224b8?xsec_token=AB3rO-QopW5sgrJ41GwN01WCXh6yWPxjSoFI9D5JIMgKw=&xsec_source=pc_search"
-    # ........................
-]
-XHS_CREATOR_ID_LIST = [
-    "63e36c9a000000002703502b",
+# 指定快手视频ID列表
+KS_SPECIFIED_ID_LIST = ["3xf8enb8dbj6uig", "3x6zz972bchmvqe"]
+
+# 指定快手用户ID列表
+KS_CREATOR_ID_LIST = [
+    "3x4sm73aye7jq7i",
     # ........................
 ]

@@ -8,15 +8,18 @@
 # 详细许可条款请参阅项目根目录下的LICENSE文件。
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
-from config import *
+# 抖音平台配置
+PUBLISH_TIME_TYPE = 0
 
-# 知乎平台配置
-ZHIHU_CREATOR_URL_LIST = [
-    "https://www.zhihu.com/people/yd1234567",
+# 指定DY视频ID列表
+DY_SPECIFIED_ID_LIST = [
+    "7280854932641664319",
+    "7202432992642387233",
     # ........................
 ]
-ZHIHU_SPECIFIED_ID_LIST = [
-    "https://www.zhihu.com/question/826896610/answer/4885821440",  # 回答
-    "https://zhuanlan.zhihu.com/p/673461588",  # 文章
-    "https://www.zhihu.com/zvideo/1539542068422144000",  # 视频
+
+# 指定DY用户ID列表
+DY_CREATOR_ID_LIST = [
+    "MS4wLjABAAAATJPY7LAlaa5X-c8uNdWkvz0jUGgpw4eeXIwu_8BhvqE",
+    # ........................
 ]
