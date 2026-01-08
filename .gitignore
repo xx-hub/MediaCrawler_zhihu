@@ -179,3 +179,14 @@ agent_zone
 debug_tools
 
 database/*.db
+
+# 配置文件（包含个人隐私信息，不提交到仓库）
+# 使用 .example.py 文件作为模板
+config/base_config.py
+config/xhs_config.py
+config/dy_config.py
+config/ks_config.py
+config/bilibili_config.py
+config/weibo_config.py
+config/tieba_config.py
+config/zhihu_config.py

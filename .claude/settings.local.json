@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__zread__get_repo_structure",
+      "Bash(tree:*)",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(python:*)",
+      "Bash(for:*)",
+      "Bash(do sed:*)",
+      "Bash(done:*)",
+      "Bash(pip install:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

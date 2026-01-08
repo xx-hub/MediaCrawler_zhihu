@@ -62,26 +62,66 @@ async def find_login_qrcode(page: Page, selector: str) -> str:
         return ""
 
 
-async def find_qrcode_img_from_canvas(page: Page, canvas_selector: str) -> str:
+async def find_qrcode_img_from_canvas(page: Page, canvas_selector: str, timeout: int = 30000) -> str:
     """
-    find qrcode image from canvas element
+    find qrcode image from canvas element with retry mechanism
     Args:
         page:
         canvas_selector:
+        timeout: Timeout in milliseconds
 
     Returns:
 
     """
-
-    # Wait for Canvas element to load
-    canvas = await page.wait_for_selector(canvas_selector)
-
-    # Take screenshot of Canvas element
-    screenshot = await canvas.screenshot()
-
-    # Convert screenshot to base64 format
-    base64_image = base64.b64encode(screenshot).decode('utf-8')
-    return base64_image
+    from tools import utils
+    
+    # Try multiple approaches to find the canvas
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            utils.logger.info(f"[find_qrcode_img_from_canvas] Attempt {attempt + 1}/{max_retries} with selector: {canvas_selector}")
+            
+            # Wait for Canvas element to load with timeout
+            canvas = await page.wait_for_selector(canvas_selector, timeout=timeout)
+            
+            if not canvas:
+                utils.logger.warning(f"[find_qrcode_img_from_canvas] Canvas not found with selector: {canvas_selector}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    return ""
+            
+            # Take screenshot of Canvas element
+            screenshot = await canvas.screenshot()
+            
+            # Convert screenshot to base64 format
+            base64_image = base64.b64encode(screenshot).decode('utf-8')
+            
+            # Validate that we got a proper image
+            if len(base64_image) > 100:  # Basic validation - should be more than 100 chars
+                utils.logger.info(f"[find_qrcode_img_from_canvas] Successfully captured QR code image")
+                return base64_image
+            else:
+                utils.logger.warning(f"[find_qrcode_img_from_canvas] Invalid image data received")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    return ""
+                    
+        except Exception as e:
+            utils.logger.warning(f"[find_qrcode_img_from_canvas] Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                utils.logger.info(f"[find_qrcode_img_from_canvas] Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+            else:
+                utils.logger.error(f"[find_qrcode_img_from_canvas] All attempts failed for selector: {canvas_selector}")
+                return ""
+    
+    return ""
 
 
 def show_qrcode(qr_code) -> None:  # type: ignore
@@ -194,14 +234,34 @@ def format_proxy_info(ip_proxy_info) -> Tuple[Optional[Dict], Optional[str]]:
 
 
 def extract_text_from_html(html: str) -> str:
-    """Extract text from HTML, removing all tags."""
+    """Extract text from HTML, removing all tags but preserving line breaks."""
     if not html:
         return ""
 
     # Remove script and style elements
     clean_html = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', html, flags=re.DOTALL)
+    
+    # Replace <br> tags with newlines
+    clean_html = re.sub(r'<br\s*/?>', '\n', clean_html, flags=re.IGNORECASE)
+    
+    # Replace closing paragraph and div tags with newlines
+    clean_html = re.sub(r'</(p|div)>', '\n', clean_html, flags=re.IGNORECASE)
+    
     # Remove all other tags
-    clean_text = re.sub(r'<[^>]+>', '', clean_html).strip()
+    clean_text = re.sub(r'<[^>]+>', '', clean_html)
+    
+    # Replace HTML entities for spaces and newlines
+    clean_text = clean_text.replace('&nbsp;', ' ').replace('&ensp;', ' ').replace('&emsp;', '  ')
+    
+    # Normalize multiple spaces to single space
+    clean_text = re.sub(r' +', ' ', clean_text)
+    
+    # Normalize multiple newlines to double newlines (paragraph breaks)
+    clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text)
+    
+    # Remove leading/trailing whitespace
+    clean_text = clean_text.strip()
+    
     return clean_text
 
 def extract_url_params_to_dict(url: str) -> Dict:

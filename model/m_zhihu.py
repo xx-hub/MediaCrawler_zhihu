@@ -33,6 +33,8 @@ class ZhihuContent(BaseModel):
     content_text: str = Field(default="", description="Content text, empty for video type")
     content_url: str = Field(default="", description="Content landing page URL")
     question_id: str = Field(default="", description="Question ID, has value when type is answer")
+    question_title: str = Field(default="", description="Question title")
+    question_detail: str = Field(default="", description="Question detail")
     title: str = Field(default="", description="Content title")
     desc: str = Field(default="", description="Content description")
     created_time: int = Field(default=0, description="Create time")

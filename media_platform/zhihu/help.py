@@ -109,10 +109,26 @@ class ZhihuExtractor:
         res.content_id = answer.get("id")
         res.content_type = answer.get("type")
         res.content_text = extract_text_from_html(answer.get("content", ""))
-        res.question_id = answer.get("question").get("id")
+        
+        # Extract question information
+        question = answer.get("question", {})
+        res.question_id = question.get("id", "")
+        res.question_title = extract_text_from_html(question.get("title", ""))
+        # Try multiple possible field names for question detail
+        res.question_detail = extract_text_from_html(question.get("detail", "") or 
+                                                   question.get("excerpt", "") or 
+                                                   question.get("description", "") or 
+                                                   question.get("content", ""))
+        
         res.content_url = f"{zhihu_constant.ZHIHU_URL}/question/{res.question_id}/answer/{res.content_id}"
         res.title = extract_text_from_html(answer.get("title", ""))
-        res.desc = extract_text_from_html(answer.get("description", "") or answer.get("excerpt", ""))
+        # For desc field, use the same logic as content_text to preserve line breaks
+        desc_content = answer.get("description", "") or answer.get("excerpt", "")
+        if desc_content:
+            res.desc = extract_text_from_html(desc_content)
+        else:
+            # If no description/excerpt is available, use a shortened version of content_text
+            res.desc = extract_text_from_html(answer.get("content", ""))
         res.created_time = answer.get("created_time")
         res.updated_time = answer.get("updated_time")
         res.voteup_count = answer.get("voteup_count", 0)

@@ -81,15 +81,50 @@ class ZhiHuLogin(AbstractLogin):
     async def login_by_qrcode(self):
         """login zhihu website and keep webdriver login state"""
         utils.logger.info("[ZhiHu.login_by_qrcode] Begin login zhihu by qrcode ...")
-        qrcode_img_selector = "canvas.Qrcode-qrcode"
-        # find login qrcode
-        base64_qrcode_img = await utils.find_qrcode_img_from_canvas(
-            self.context_page,
-            canvas_selector=qrcode_img_selector
-        )
+        
+        # Try multiple selectors for QR code canvas
+        qrcode_selectors = [
+            "canvas.Qrcode-qrcode",  # Original selector
+            "canvas[class*='qrcode']",  # Generic class selector
+            "canvas",  # Fallback to any canvas
+            ".Qrcode-content canvas",  # Container-based selector
+            "[data-testid='qrcode'] canvas"  # Data attribute selector
+        ]
+        
+        base64_qrcode_img = None
+        for selector in qrcode_selectors:
+            try:
+                utils.logger.info(f"[ZhiHu.login_by_qrcode] Trying selector: {selector}")
+                base64_qrcode_img = await utils.find_qrcode_img_from_canvas(
+                    self.context_page,
+                    canvas_selector=selector
+                )
+                if base64_qrcode_img:
+                    utils.logger.info(f"[ZhiHu.login_by_qrcode] Found QR code with selector: {selector}")
+                    break
+            except Exception as e:
+                utils.logger.warning(f"[ZhiHu.login_by_qrcode] Selector {selector} failed: {e}")
+                continue
+        
         if not base64_qrcode_img:
-            utils.logger.info("[ZhiHu.login_by_qrcode] login failed , have not found qrcode please check ....")
+            utils.logger.error("[ZhiHu.login_by_qrcode] Login failed, could not find QR code with any selector")
+            # Try alternative approach - navigate to login page directly
+            await self._navigate_to_login_page()
+            
+            # Retry with selectors after navigation
+            for selector in qrcode_selectors:
+                try:
+                    base64_qrcode_img = await utils.find_qrcode_img_from_canvas(
+                        self.context_page,
+                        canvas_selector=selector
+                    )
+                    if base64_qrcode_img:
+                        break
+                except:
+                    continue
+            
             if not base64_qrcode_img:
+                utils.logger.error("[ZhiHu.login_by_qrcode] All QR code detection methods failed")
                 sys.exit()
 
         # show login qrcode
@@ -111,6 +146,37 @@ class ZhiHuLogin(AbstractLogin):
         utils.logger.info(
             f"[ZhiHu.login_by_qrcode] Login successful then wait for {wait_redirect_seconds} seconds redirect ...")
         await asyncio.sleep(wait_redirect_seconds)
+
+    async def _navigate_to_login_page(self):
+        """Navigate to Zhihu login page directly"""
+        utils.logger.info("[ZhiHu._navigate_to_login_page] Navigating to Zhihu login page...")
+        
+        # Navigate to Zhihu login page
+        login_url = "https://www.zhihu.com/signin"
+        await self.context_page.goto(login_url, wait_until="networkidle")
+        
+        # Wait for page to load
+        await self.context_page.wait_for_load_state("networkidle")
+        
+        # Try to click QR code login tab if available
+        qr_tab_selectors = [
+            "[data-tab='qrcode']",
+            ".SignFlow-qrcodeTab",
+            "button[aria-label*='二维码']",
+            "button:has-text('二维码')"
+        ]
+        
+        for selector in qr_tab_selectors:
+            try:
+                qr_tab = await self.context_page.query_selector(selector)
+                if qr_tab:
+                    await qr_tab.click()
+                    utils.logger.info(f"[ZhiHu._navigate_to_login_page] Clicked QR code tab with selector: {selector}")
+                    await asyncio.sleep(2)  # Wait for QR code to load
+                    break
+            except Exception as e:
+                utils.logger.warning(f"[ZhiHu._navigate_to_login_page] Failed to click QR tab {selector}: {e}")
+                continue
 
     async def login_by_cookies(self):
         """login zhihu website by cookies"""

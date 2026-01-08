@@ -34,6 +34,7 @@ from constant import zhihu as zhihu_constant
 from model.m_zhihu import ZhihuComment, ZhihuContent, ZhihuCreator
 from proxy.proxy_mixin import ProxyRefreshMixin
 from tools import utils
+from tools.progress_manager import ProgressManager
 
 if TYPE_CHECKING:
     from proxy.proxy_ip_pool import ProxyIpPool
@@ -396,7 +397,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
         uri = f"/api/v4/members/{url_token}/answers"
         params = {
             "include":
-            "data[*].is_normal,admin_closed_comment,reward_info,is_collapsed,annotation_action,annotation_detail,collapse_reason,collapsed_by,suggest_edit,comment_count,can_comment,content,editable_content,attachment,voteup_count,reshipment_settings,comment_permission,created_time,updated_time,review_info,excerpt,paid_info,reaction_instruction,is_labeled,label_info,relationship.is_authorized,voting,is_author,is_thanked,is_nothelp;data[*].vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.vip_info;data[*].question.has_publishing_draft,relationship",
+            "data[*].is_normal,admin_closed_comment,reward_info,is_collapsed,annotation_action,annotation_detail,collapse_reason,collapsed_by,suggest_edit,comment_count,can_comment,content,editable_content,attachment,voteup_count,reshipment_settings,comment_permission,created_time,updated_time,review_info,excerpt,paid_info,reaction_instruction,is_labeled,label_info,relationship.is_authorized,voting,is_author,is_thanked,is_nothelp;data[*].vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.vip_info;data[*].question.excerpt,detail,title,has_publishing_draft,relationship",
             "offset": offset,
             "limit": limit,
             "order_by": "created"
@@ -457,8 +458,14 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
         """
         all_contents: List[ZhihuContent] = []
         is_end: bool = False
-        offset: int = 0
         limit: int = 20
+        
+        # 使用ProgressManager实现断点续传
+        progress_manager = ProgressManager(platform="zhihu", crawler_type="creator")
+        offset: int = progress_manager.get_last_offset(creator.url_token)
+        
+        utils.logger.info(f"[ZhiHuClient.get_all_anwser_by_creator] Starting from offset: {offset} for creator: {creator.url_token}")
+        
         while not is_end:
             res = await self.get_creator_answers(creator.url_token, offset, limit)
             if not res:
@@ -467,10 +474,22 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
             paging_info = res.get("paging", {})
             is_end = paging_info.get("is_end")
             contents = self._extractor.extract_content_list_from_creator(res.get("data"))
+            
+            # 检查是否已经爬取过这些内容，避免重复
+            filtered_contents = []
+            for content in contents:
+                if not progress_manager.is_content_crawled(creator.url_token, content.content_id):
+                    filtered_contents.append(content)
+                    progress_manager.mark_content_crawled(creator.url_token, content.content_id)
+            
             if callback:
-                await callback(contents)
-            all_contents.extend(contents)
+                await callback(filtered_contents)
+            all_contents.extend(filtered_contents)
             offset += limit
+            
+            # 保存进度
+            progress_manager.save_progress(creator.url_token, offset, len(all_contents))
+            
             await asyncio.sleep(crawl_interval)
         return all_contents
 

@@ -226,28 +226,52 @@ class CDPBrowserManager:
 
     async def _get_browser_websocket_url(self, debug_port: int) -> str:
         """
-        Get browser WebSocket connection URL
+        Get browser WebSocket connection URL with retry mechanism
         """
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"http://localhost:{debug_port}/json/version", timeout=10
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    ws_url = data.get("webSocketDebuggerUrl")
-                    if ws_url:
-                        utils.logger.info(
-                            f"[CDPBrowserManager] Got browser WebSocket URL: {ws_url}"
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"http://localhost:{debug_port}/json/version", timeout=10
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        ws_url = data.get("webSocketDebuggerUrl")
+                        if ws_url:
+                            utils.logger.info(
+                                f"[CDPBrowserManager] Got browser WebSocket URL: {ws_url}"
+                            )
+                            return ws_url
+                        else:
+                            raise RuntimeError("webSocketDebuggerUrl not found")
+                    elif response.status_code == 503:
+                        utils.logger.warning(
+                            f"[CDPBrowserManager] CDP service not ready (503), attempt {attempt + 1}/{max_retries}"
                         )
-                        return ws_url
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        else:
+                            raise RuntimeError(f"CDP service not ready after {max_retries} attempts")
                     else:
-                        raise RuntimeError("webSocketDebuggerUrl not found")
+                        raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
+            except httpx.ConnectError as e:
+                utils.logger.warning(
+                    f"[CDPBrowserManager] Connection error, attempt {attempt + 1}/{max_retries}: {e}"
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
                 else:
-                    raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
-            utils.logger.error(f"[CDPBrowserManager] Failed to get WebSocket URL: {e}")
-            raise
+                    raise RuntimeError(f"Failed to connect to CDP service after {max_retries} attempts")
+            except Exception as e:
+                utils.logger.error(f"[CDPBrowserManager] Failed to get WebSocket URL: {e}")
+                raise
+        
+        raise RuntimeError("Failed to get WebSocket URL after all retries")
 
     async def _connect_via_cdp(self, playwright: Playwright):
         """

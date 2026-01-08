@@ -227,8 +227,10 @@ class BrowserLauncher:
 
             # Try to get version info
             try:
+                # Fix UnicodeDecodeError by specifying encoding
                 result = subprocess.run([browser_path, "--version"],
-                                      capture_output=True, text=True, timeout=5)
+                                      capture_output=True, text=True, encoding='utf-8',
+                                      errors='ignore', timeout=5)
                 version = result.stdout.strip() if result.stdout else "Unknown Version"
             except:
                 version = "Unknown Version"
