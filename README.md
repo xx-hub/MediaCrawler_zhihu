@@ -1,4 +1,4 @@
-# 🔥 MediaCrawler - 知乎内容爬虫 🕷️
+# 🔥 MediaCrawler_zhihu 创作者分身创建助手 🕷️
 
 <div align="center">
 
@@ -16,11 +16,11 @@
 
 ## 📖 项目简介
 
-基于 [MediaCrawler](https://github.com/NanmiCoder/MediaCrawler) 修改的知乎用户本人历史数据采集。
+基于 [MediaCrawler](https://github.com/NanmiCoder/MediaCrawler) 修改的知乎用户本人回答采集。
 
 ### 🎯 主要功能
 
-- ✅ **创作者主页爬取** - 获取知乎用户的所有回答
+- ✅ **创作者主页爬取** - 获取知乎用户的所有回答，用于创建创作者分身的LLM微调数据集。
 
 
 
@@ -47,12 +47,13 @@ node --version
 
 ### 📦 安装步骤
 
-#### 方法 1：使用 uv（推荐）
-
 ```bash
 # 克隆项目
 git clone https://github.com/xx-hub/MediaCrawler_zhihu.git
+```
+#### 方法 1：使用 uv（推荐）
 
+```bash
 # 进入项目目录
 cd MediaCrawler_zhihu
 
@@ -141,36 +142,9 @@ uv run main.py
 2. 显示二维码登录页面
 3. 用手机知乎 APP 扫码登录
 4. 自动爬取配置文件中创作者的所有回答
-
-### 2. 爬取指定的回答/文章/视频
-
-**步骤 1：** 修改 `config/zhihu_config.py`，添加要爬取的 URL
-
-**步骤 2：** 运行爬虫
+### 2.运行结束后，手动运行tools/convert_to_jsonl.py，将问答数据转换为jsonl格式用于LLM微调
 ```bash
-uv run main.py --platform zhihu --lt qrcode --type detail
-```
-
-### 3. 关键词搜索
-
-**步骤 1：** 修改 `config/base_config.py`
-```python
-CRAWLER_TYPE = "search"
-KEYWORDS = "Python,爬虫,数据分析"  # 搜索关键词
-```
-
-**步骤 2：** 运行爬虫
-```bash
-uv run main.py --platform zhihu --lt qrcode --type search
-```
-
-### 4. 爬取评论
-
-修改 `config/base_config.py`：
-```python
-ENABLE_GET_COMMENTS = True  # 开启评论爬取
-ENABLE_GET_SUB_COMMENTS = False  # 是否爬取二级评论
-CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 50  # 每个内容爬取的评论数
+uv run tools/convert_to_jsonl.py
 ```
 
 ## 💾 数据保存
@@ -181,39 +155,12 @@ CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 50  # 每个内容爬取的评论数
 data/zhihu/
 ├── json/                    # JSON 格式数据
 │   ├── creator_contents_YYYYMMDD.json  # 创作者内容
-│   ├── creator_creators_YYYYMMDD.json  # 创作者信息
-│   └── creator_comments_YYYYMMDD.json   # 评论（如果启用）
-├── csv/                     # CSV 格式数据
-└── progress_creator.json   # 进度记录
+
+```
+```
+data/jsonl/                  # 用于LLM微调的jsonl格式数据
 ```
 
-### 数据格式
-
-**回答数据 (JSON)**
-```json
-{
-  "content_id": "123456789",
-  "content_type": "answer",
-  "question_title": "问题标题",
-  "content_text": "回答内容...",
-  "voteup_count": 100,
-  "comment_count": 50,
-  "author": "作者昵称",
-  "created_time": 1234567890,
-  "content_url": "https://www.zhihu.com/question/xxx/answer/xxx"
-}
-```
-
-## 🔐 登录方式
-
-### 方式 1：扫码登录（推荐）
-
-```python
-LOGIN_TYPE = "qrcode"
-HEADLESS = False  # 显示浏览器窗口
-```
-
-运行后会显示浏览器，打开知乎登录页，用手机知乎 APP 扫码登录即可。
 
 
 其他信息请参考 [MediaCrawler](https://github.com/NanmiCoder/MediaCrawler) 项目。
@@ -221,4 +168,4 @@ HEADLESS = False  # 显示浏览器窗口
 
 - [MediaCrawler 原项目](https://github.com/NanmiCoder/MediaCrawler)
 
-**享受爬虫的乐趣！🕷️**
+**享受复刻自己的乐趣！🕷️**
