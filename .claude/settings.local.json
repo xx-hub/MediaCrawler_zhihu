@@ -10,7 +10,12 @@
       "Bash(do sed:*)",
       "Bash(done:*)",
       "Bash(pip install:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh:*)",
+      "Bash(git remote remove:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
