@@ -50,8 +50,11 @@ node --version
 #### 方法 1：使用 uv（推荐）
 
 ```bash
+# 克隆项目
+git clone https://github.com/xx-hub/MediaCrawler_zhihu.git
+
 # 进入项目目录
-cd MediaCrawler
+cd MediaCrawler_zhihu
 
 # 安装 uv（如果还没安装）
 # Windows: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
@@ -68,7 +71,7 @@ uv run playwright install
 
 ```bash
 # 进入项目目录
-cd MediaCrawler
+cd MediaCrawler_zhihu
 
 # 创建虚拟环境
 python -m venv venv
