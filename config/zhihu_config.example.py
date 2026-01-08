@@ -22,8 +22,8 @@
 
 # 指定知乎用户URL列表
 ZHIHU_CREATOR_URL_LIST = [
-    # 示例：请替换为您要爬取的知乎用户主页URL
-    # "https://www.zhihu.com/people/example_user",
+    # 示例：请替换为您自己的知乎用户主页URL，登录知乎后点击自己的头像可以查看
+    "https://www.zhihu.com/people/example_user",
 ]
 
 # 指定知乎ID列表

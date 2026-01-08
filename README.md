@@ -86,9 +86,9 @@ playwright install
 
 ## ⚙️ 配置说明
 
-在运行爬虫前，需要修改配置文件。
+在运行爬虫前，需要新建并修改配置文件。
 
-### 1. 基础配置 (config/base_config.py)
+### 1. 基础配置 (config/base_config.py)（复制config/base_config.example.py后改名为base_config.py）
 
 ```python
 # 平台选择
@@ -110,7 +110,7 @@ ENABLE_CDP_MODE = True
 HEADLESS = False
 ```
 
-### 2. 知乎配置 (config/zhihu_config.py)
+### 2. 知乎配置 (config/zhihu_config.py)（复制config/zhihu_config.example.py后改名为zhihu_config.py）
 
 ```python
 # 要爬取的创作者主页 URL 列表
