@@ -17,7 +17,13 @@
       "Bash(git remote add:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(ping:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(ssh:*)",
+      "Bash(test:*)",
+      "Bash(ls:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

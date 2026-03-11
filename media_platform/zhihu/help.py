@@ -29,7 +29,7 @@ from parsel import Selector
 from constant import zhihu as zhihu_constant
 from model.m_zhihu import ZhihuComment, ZhihuContent, ZhihuCreator
 from tools import utils
-from tools.crawler_util import extract_text_from_html
+from tools.crawler_util import extract_text_from_html, extract_images_from_html
 
 ZHIHU_SGIN_JS = None
 
@@ -108,7 +108,9 @@ class ZhihuExtractor:
         res = ZhihuContent()
         res.content_id = answer.get("id")
         res.content_type = answer.get("type")
-        res.content_text = extract_text_from_html(answer.get("content", ""))
+        # Extract images from content
+        res.images = []
+        res.content_text = extract_text_from_html(answer.get("content", ""), res.images)
         
         # Extract question information
         question = answer.get("question", {})
@@ -155,7 +157,9 @@ class ZhihuExtractor:
         res = ZhihuContent()
         res.content_id = article.get("id")
         res.content_type = article.get("type")
-        res.content_text = extract_text_from_html(article.get("content"))
+        # Extract images from content
+        res.images = []
+        res.content_text = extract_text_from_html(article.get("content", ""), res.images)
         res.content_url = f"{zhihu_constant.ZHIHU_ZHUANLAN_URL}/p/{res.content_id}"
         res.title = extract_text_from_html(article.get("title"))
         res.desc = extract_text_from_html(article.get("excerpt"))
@@ -223,6 +227,8 @@ class ZhihuExtractor:
                 return res
             if not author.get("id"):
                 author = author.get("member")
+            if not author:
+                return res
             res.user_id = author.get("id")
             res.user_link = f"{zhihu_constant.ZHIHU_URL}/people/{author.get('url_token')}"
             res.user_nickname = author.get("name")

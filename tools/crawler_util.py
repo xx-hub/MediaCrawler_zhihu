@@ -233,7 +233,7 @@ def format_proxy_info(ip_proxy_info) -> Tuple[Optional[Dict], Optional[str]]:
     return playwright_proxy, httpx_proxy
 
 
-def extract_text_from_html(html: str) -> str:
+def extract_text_from_html(html: str, images: list = None) -> str:
     """Extract text from HTML, removing all tags but preserving line breaks."""
     if not html:
         return ""
@@ -246,6 +246,46 @@ def extract_text_from_html(html: str) -> str:
     
     # Replace closing paragraph and div tags with newlines
     clean_html = re.sub(r'</(p|div)>', '\n', clean_html, flags=re.IGNORECASE)
+    
+    # Replace img tags with indexed placeholders if images list is provided
+    if images:
+        def replace_img_tag(match):
+            if images:
+                img_tag = match.group(0)
+                
+                # Try multiple attribute patterns to extract image URL
+                url = None
+                
+                # 1. data-original (知乎常用)
+                data_original_match = re.search(r'data-original=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+                # 2. data-actualsrc
+                data_actualsrc_match = re.search(r'data-actualsrc=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+                # 3. data-src
+                data_src_match = re.search(r'data-src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+                # 4. src
+                src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+                
+                if data_original_match:
+                    url = data_original_match.group(1)
+                elif data_actualsrc_match:
+                    url = data_actualsrc_match.group(1)
+                elif data_src_match:
+                    url = data_src_match.group(1)
+                elif src_match:
+                    url = src_match.group(1)
+                
+                # Check if URL is valid (starts with http and not a placeholder)
+                if url and url.startswith('http') and 'placeholder' not in url.lower():
+                    index = len(images)
+                    images.append(url)
+                    return f'[图片{index+1}]'
+            return '[图片]'
+        # Match img tags with any of the common image attributes
+        img_pattern = re.compile(r'<img[^>]+>', re.IGNORECASE)
+        clean_html = img_pattern.sub(replace_img_tag, clean_html)
+    else:
+        # Replace img tags with [图片] placeholder
+        clean_html = re.sub(r'<img[^>]+>', '[图片]', clean_html, flags=re.IGNORECASE)
     
     # Remove all other tags
     clean_text = re.sub(r'<[^>]+>', '', clean_html)
@@ -263,6 +303,26 @@ def extract_text_from_html(html: str) -> str:
     clean_text = clean_text.strip()
     
     return clean_text
+
+
+def extract_images_from_html(html: str) -> list:
+    """Extract image URLs from HTML."""
+    if not html:
+        return []
+    
+    # Extract image URLs from img tags
+    img_urls = []
+    # Match img tags and extract src attribute
+    img_pattern = re.compile(r'<img[^>]+src="([^"]+)"', re.IGNORECASE)
+    matches = img_pattern.findall(html)
+    
+    for match in matches:
+        # Clean up the URL
+        img_url = match.strip()
+        if img_url:
+            img_urls.append(img_url)
+    
+    return img_urls
 
 def extract_url_params_to_dict(url: str) -> Dict:
     """Extract URL parameters to dict"""

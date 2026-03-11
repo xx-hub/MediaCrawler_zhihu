@@ -42,6 +42,7 @@ class ZhihuContent(BaseModel):
     voteup_count: int = Field(default=0, description="Upvote count")
     comment_count: int = Field(default=0, description="Comment count")
     source_keyword: str = Field(default="", description="Source keyword")
+    images: list = Field(default_factory=list, description="List of image URLs")
 
     user_id: str = Field(default="", description="User ID")
     user_link: str = Field(default="", description="User homepage link")

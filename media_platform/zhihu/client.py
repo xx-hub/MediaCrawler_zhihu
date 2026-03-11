@@ -473,7 +473,14 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
             utils.logger.info(f"[ZhiHuClient.get_all_anwser_by_creator] Get creator {creator.url_token} answers: {res}")
             paging_info = res.get("paging", {})
             is_end = paging_info.get("is_end")
-            contents = self._extractor.extract_content_list_from_creator(res.get("data"))
+            
+            # 检查数据是否为空，如果为空且没有更多数据，结束循环
+            data = res.get("data")
+            if not data:
+                is_end = True
+                break
+                
+            contents = self._extractor.extract_content_list_from_creator(data)
             
             # 检查是否已经爬取过这些内容，避免重复
             filtered_contents = []
@@ -519,7 +526,14 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
                 break
             paging_info = res.get("paging", {})
             is_end = paging_info.get("is_end")
-            contents = self._extractor.extract_content_list_from_creator(res.get("data"))
+            
+            # 检查数据是否为空，如果为空且没有更多数据，结束循环
+            data = res.get("data")
+            if not data:
+                is_end = True
+                break
+                
+            contents = self._extractor.extract_content_list_from_creator(data)
             if callback:
                 await callback(contents)
             all_contents.extend(contents)
@@ -553,7 +567,14 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
                 break
             paging_info = res.get("paging", {})
             is_end = paging_info.get("is_end")
-            contents = self._extractor.extract_content_list_from_creator(res.get("data"))
+            
+            # 检查数据是否为空，如果为空且没有更多数据，结束循环
+            data = res.get("data")
+            if not data:
+                is_end = True
+                break
+                
+            contents = self._extractor.extract_content_list_from_creator(data)
             if callback:
                 await callback(contents)
             all_contents.extend(contents)
