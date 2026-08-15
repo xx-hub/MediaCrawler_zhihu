@@ -18,7 +18,7 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from playwright.async_api import BrowserContext, BrowserType, Playwright
 
@@ -119,7 +119,8 @@ class AbstractStoreVideo(ABC):
 class AbstractApiClient(ABC):
 
     @abstractmethod
-    async def request(self, method, url, **kwargs):
+    async def request(self, method, url, **kwargs) -> Any:
+        """发送请求,各平台子类返回解析后的 JSON dict 或原始文本"""
         pass
 
     @abstractmethod

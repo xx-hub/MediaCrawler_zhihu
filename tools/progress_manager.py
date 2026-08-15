@@ -18,7 +18,7 @@
 
 import json
 import os
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 from tools import utils
 
 
@@ -32,10 +32,17 @@ class ProgressManager:
         
     def _ensure_progress_dir(self):
         """确保进度文件目录存在"""
-        os.makedirs(os.path.dirname(self.progress_file), exist_ok=True)
+        try:
+            os.makedirs(os.path.dirname(self.progress_file), exist_ok=True)
+        except OSError:
+            pass
     
     def get_last_offset(self, url_token: str) -> int:
-        """获取上次爬取的偏移量"""
+        """获取上次爬取的分页游标(page_offset)。
+
+        知乎创作者回答 API 的 offset 为分页游标(0, 20, 40, ...),
+        每次按 limit=20 递增。兼容读取旧字段名 last_offset。
+        """
         self._ensure_progress_dir()
         
         if not os.path.exists(self.progress_file):
@@ -44,12 +51,20 @@ class ProgressManager:
         try:
             with open(self.progress_file, 'r', encoding='utf-8') as f:
                 progress_data = json.load(f)
-                return progress_data.get(url_token, {}).get('last_offset', 0)
-        except (json.JSONDecodeError, KeyError):
+                user_progress = progress_data.get(url_token, {})
+                # 优先新字段 page_offset,兼容旧字段 last_offset
+                return int(user_progress.get('page_offset', user_progress.get('last_offset', 0)))
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError):
             return 0
     
     def save_progress(self, url_token: str, offset: int, total_count: int):
-        """保存爬取进度"""
+        """保存爬取进度。
+
+        Args:
+            url_token: 创作者 url_token
+            offset: API 分页游标(每页 limit=20,循环内 offset += limit)
+            total_count: 本次运行累计新增去重条数(非该作者回答总数)
+        """
         self._ensure_progress_dir()
         
         progress_data = {}
@@ -57,18 +72,21 @@ class ProgressManager:
             try:
                 with open(self.progress_file, 'r', encoding='utf-8') as f:
                     progress_data = json.load(f)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                 progress_data = {}
-        
+
+        # 保留旧字段 last_offset/total_count 以向后兼容(新代码只读 page_offset/crawled_count)
         progress_data[url_token] = {
+            'page_offset': offset,
+            'crawled_count': total_count,
+            'last_update': utils.get_current_timestamp(),
             'last_offset': offset,
             'total_count': total_count,
-            'last_update': utils.get_current_timestamp()
         }
         
         with open(self.progress_file, 'w', encoding='utf-8') as f:
             json.dump(progress_data, f, ensure_ascii=False, indent=2)
-    
+
     def get_existing_content_ids(self, item_type: str = "contents") -> Set[str]:
         """获取已存在的content_id集合，用于去重"""
         existing_ids = set()
@@ -79,7 +97,10 @@ class ProgressManager:
             return existing_ids
             
         # 获取所有JSON文件
-        json_files = [f for f in os.listdir(json_dir) if f.endswith('.json') and item_type in f]
+        try:
+            json_files = [f for f in os.listdir(json_dir) if f.endswith('.json') and item_type in f]
+        except OSError:
+            return existing_ids
         if not json_files:
             return existing_ids
             
@@ -94,7 +115,7 @@ class ProgressManager:
                     for item in data:
                         if 'content_id' in item:
                             existing_ids.add(item['content_id'])
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError, KeyError):
             pass
             
         return existing_ids
@@ -112,7 +133,7 @@ class ProgressManager:
                 user_progress = progress_data.get(url_token, {})
                 crawled_ids = user_progress.get('crawled_content_ids', [])
                 return content_id in crawled_ids
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError, KeyError):
             return False
     
     def mark_content_crawled(self, url_token: str, content_id: str):
@@ -124,12 +145,13 @@ class ProgressManager:
             try:
                 with open(self.progress_file, 'r', encoding='utf-8') as f:
                     progress_data = json.load(f)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                 progress_data = {}
-        
+
+        # 确保 url_token 键存在(不覆盖已有进度: 首次出现才初始化空字典)
         if url_token not in progress_data:
             progress_data[url_token] = {}
-        
+
         if 'crawled_content_ids' not in progress_data[url_token]:
             progress_data[url_token]['crawled_content_ids'] = set()
         
@@ -141,17 +163,23 @@ class ProgressManager:
         if content_id not in progress_data[url_token]['crawled_content_ids']:
             progress_data[url_token]['crawled_content_ids'].append(content_id)
         
-        with open(self.progress_file, 'w', encoding='utf-8') as f:
-            json.dump(progress_data, f, ensure_ascii=False, indent=2)
+        try:
+            with open(self.progress_file, 'w', encoding='utf-8') as f:
+                json.dump(progress_data, f, ensure_ascii=False, indent=2)
+        except OSError:
+            utils.logger.warning(f"[ProgressManager.mark_content_crawled] 写入进度失败: {self.progress_file}")
     
-    def clear_progress(self, url_token: str = None):
+    def clear_progress(self, url_token: Optional[str] = None):
         """清除进度记录"""
         if not os.path.exists(self.progress_file):
             return
             
         if url_token is None:
             # 清除所有进度
-            os.remove(self.progress_file)
+            try:
+                os.remove(self.progress_file)
+            except OSError:
+                pass
         else:
             # 清除指定用户的进度
             try:
@@ -163,5 +191,5 @@ class ProgressManager:
                     
                     with open(self.progress_file, 'w', encoding='utf-8') as f:
                         json.dump(progress_data, f, ensure_ascii=False, indent=2)
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError, KeyError):
                 pass

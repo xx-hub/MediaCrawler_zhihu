@@ -18,5 +18,43 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 
-from .base_config import *
+import importlib.util
+from pathlib import Path
+
+
+_CONFIG_DIR = Path(__file__).parent
+
+
+def _load_config_file(filename: str) -> None:
+    """从 config 目录加载配置文件,把其公有属性注入当前命名空间。
+
+    用于模板化配置(如 base_config.example.py)的优雅降级:
+    真实配置文件未复制时,回退到 example 占位值,保证仓库克隆后开箱即用。
+    """
+    file_path = _CONFIG_DIR / filename
+    if not file_path.exists():
+        return
+    spec = importlib.util.spec_from_file_location(f"config.{Path(filename).stem}", file_path)
+    if spec is None or spec.loader is None:
+        return
+    module = importlib.util.module_from_spec(spec)
+    # 设置父包,使文件内 `from .xxx_config import *` 相对导入可解析为 config.xxx_config
+    module.__package__ = "config"
+    spec.loader.exec_module(module)
+    for _name in dir(module):
+        if not _name.startswith("_"):
+            globals()[_name] = getattr(module, _name)
+
+
+# 优先加载真实配置;缺失时回退到 example 模板(占位值)并提示
+# 按 CONFIG_SETUP.md 复制模板即可获得可编辑的真实配置
+try:
+    from .base_config import *  # type: ignore[import-not-found]
+except ModuleNotFoundError:
+    import logging
+    logging.getLogger(__name__).warning(
+        "config/base_config.py 不存在,已回退到 base_config.example.py 占位配置;"
+        "请按 CONFIG_SETUP.md 复制模板后编辑。"
+    )
+    _load_config_file("base_config.example.py")
 from .db_config import *

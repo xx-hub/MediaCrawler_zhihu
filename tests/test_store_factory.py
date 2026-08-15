@@ -6,6 +6,7 @@ Unit tests for Store Factory functionality
 import pytest
 from unittest.mock import patch, MagicMock
 
+from store.excel_store_base import ExcelStoreBase
 from store.xhs import XhsStoreFactory
 from store.xhs._store_impl import (
     XhsCsvStoreImplement,
@@ -53,9 +54,9 @@ class TestXhsStoreFactory:
     @patch('config.SAVE_DATA_OPTION', 'excel')
     def test_create_excel_store(self):
         """Test creating Excel store"""
-        # ContextVar cannot be mocked, so we test with actual value
+        # XhsExcelStoreImplement.__new__ 返回 ExcelStoreBase 单例,故断言基类实例
         store = XhsStoreFactory.create_store()
-        assert isinstance(store, XhsExcelStoreImplement)
+        assert isinstance(store, ExcelStoreBase)
     
     @patch('config.SAVE_DATA_OPTION', 'invalid')
     def test_invalid_store_option(self):

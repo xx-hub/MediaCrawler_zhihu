@@ -20,7 +20,8 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import json
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from json import JSONDecodeError
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Union, overload
 from urllib.parse import urlencode
 
 import httpx
@@ -82,7 +83,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
         return headers
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
-    async def request(self, method, url, **kwargs) -> Union[str, Any]:
+    async def request(self, method, url, **kwargs) -> Union[Dict, str]:
         """
         Wrapper for httpx common request method with response handling
         Args:
@@ -91,6 +92,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
             **kwargs: Other request parameters such as headers, body, etc.
 
         Returns:
+            JSON dict(默认)或 response.text(return_response=True 时)
 
         """
         # Check if proxy is expired before each request
@@ -119,16 +121,23 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
                 utils.logger.error(f"[ZhiHuClient.request] Request error: {data}")
                 raise DataFetchError(data.get("error", {}).get("message"))
             return data
-        except json.JSONDecodeError:
+        except JSONDecodeError:
             utils.logger.error(f"[ZhiHuClient.request] Request error: {response.text}")
             raise DataFetchError(response.text)
 
-    async def get(self, uri: str, params=None, **kwargs) -> Union[Response, Dict, str]:
+    @overload
+    async def get(self, uri: str, params=None, *, return_response: Literal[True], **kwargs) -> str: ...
+
+    @overload
+    async def get(self, uri: str, params=None, **kwargs) -> Dict: ...
+
+    async def get(self, uri: str, params=None, **kwargs) -> Union[Dict, str]:
         """
         GET request with header signing
         Args:
             uri: Request URI
             params: Request parameters
+            return_response: True 时返回原始文本而不是 JSON dict
 
         Returns:
 
@@ -310,7 +319,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
             paging_info = root_comment_res.get("paging", {})
             is_end = paging_info.get("is_end")
             offset = self._extractor.extract_offset(paging_info)
-            comments = self._extractor.extract_comments(content, root_comment_res.get("data"))
+            comments = self._extractor.extract_comments(content, root_comment_res.get("data") or [])
 
             if not comments:
                 break
@@ -344,7 +353,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
         Returns:
 
         """
-        if not config.ENABLE_GET_SUB_COMMENTS:
+        if not getattr(config, "ENABLE_GET_SUB_COMMENTS", False):
             return []
 
         all_sub_comments: List[ZhihuComment] = []
@@ -364,7 +373,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
                 paging_info = child_comment_res.get("paging", {})
                 is_end = paging_info.get("is_end")
                 offset = self._extractor.extract_offset(paging_info)
-                sub_comments = self._extractor.extract_comments(content, child_comment_res.get("data"))
+                sub_comments = self._extractor.extract_comments(content, child_comment_res.get("data") or [])
 
                 if not sub_comments:
                     break
@@ -504,7 +513,7 @@ class ZhiHuClient(AbstractApiClient, ProxyRefreshMixin):
             all_contents.extend(filtered_contents)
             offset += limit
             
-            # 保存进度
+            # 保存进度: offset 为 API 分页游标(每页 20 条),all_contents 为本次运行新增条数
             progress_manager.save_progress(creator.url_token, offset, len(all_contents))
             
             await asyncio.sleep(crawl_interval)

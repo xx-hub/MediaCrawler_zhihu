@@ -23,6 +23,7 @@
 # @Time    : 2023/12/2 12:53
 # @Desc    : Crawler utility functions
 
+import asyncio
 import base64
 import json
 import random
@@ -133,7 +134,7 @@ def show_qrcode(qr_code) -> None:  # type: ignore
 
     # Add a square border around the QR code and display it within the border to improve scanning accuracy.
     width, height = image.size
-    new_image = Image.new('RGB', (width + 20, height + 20), color=(255, 255, 255))
+    new_image = Image.new('RGB', (width + 20, height + 20), color=(255, 255, 255))  # type: ignore[arg-type]
     new_image.paste(image, (10, 10))
     draw = ImageDraw.Draw(new_image)
     draw.rectangle((0, 0, width + 19, height + 19), outline=(0, 0, 0), width=1)
@@ -209,7 +210,10 @@ def match_interact_info_count(count_str: str) -> int:
     match = re.search(r'\d+', count_str)
     if match:
         number = match.group()
-        return int(number)
+        try:
+            return int(number)
+        except ValueError:
+            return 0
     else:
         return 0
 
@@ -233,7 +237,7 @@ def format_proxy_info(ip_proxy_info) -> Tuple[Optional[Dict], Optional[str]]:
     return playwright_proxy, httpx_proxy
 
 
-def extract_text_from_html(html: str, images: list = None) -> str:
+def extract_text_from_html(html: str, images: Optional[list] = None) -> str:
     """Extract text from HTML, removing all tags but preserving line breaks."""
     if not html:
         return ""
@@ -247,45 +251,48 @@ def extract_text_from_html(html: str, images: list = None) -> str:
     # Replace closing paragraph and div tags with newlines
     clean_html = re.sub(r'</(p|div)>', '\n', clean_html, flags=re.IGNORECASE)
     
-    # Replace img tags with indexed placeholders if images list is provided
-    if images:
+    # Replace img tags with indexed placeholders when an images list is provided.
+    # NOTE: use `is not None` instead of truthiness -- help.py always passes an
+    # empty list, and an empty list must still enter the placeholder branch.
+    if images is not None:
         def replace_img_tag(match):
-            if images:
-                img_tag = match.group(0)
-                
-                # Try multiple attribute patterns to extract image URL
-                url = None
-                
-                # 1. data-original (知乎常用)
-                data_original_match = re.search(r'data-original=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
-                # 2. data-actualsrc
-                data_actualsrc_match = re.search(r'data-actualsrc=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
-                # 3. data-src
-                data_src_match = re.search(r'data-src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
-                # 4. src
-                src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
-                
-                if data_original_match:
-                    url = data_original_match.group(1)
-                elif data_actualsrc_match:
-                    url = data_actualsrc_match.group(1)
-                elif data_src_match:
-                    url = data_src_match.group(1)
-                elif src_match:
-                    url = src_match.group(1)
-                
-                # Check if URL is valid (starts with http and not a placeholder)
-                if url and url.startswith('http') and 'placeholder' not in url.lower():
-                    index = len(images)
-                    images.append(url)
-                    return f'[图片{index+1}]'
-            return '[图片]'
+            img_tag = match.group(0)
+
+            # Try multiple attribute patterns to extract image URL
+            url = None
+
+            # 1. data-original (知乎常用)
+            data_original_match = re.search(r'data-original=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+            # 2. data-actualsrc
+            data_actualsrc_match = re.search(r'data-actualsrc=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+            # 3. data-src
+            data_src_match = re.search(r'data-src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+            # 4. src
+            src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag, re.IGNORECASE)
+
+            if data_original_match:
+                url = data_original_match.group(1)
+            elif data_actualsrc_match:
+                url = data_actualsrc_match.group(1)
+            elif data_src_match:
+                url = data_src_match.group(1)
+            elif src_match:
+                url = src_match.group(1)
+
+            # Check if URL is valid (starts with http and not a placeholder)
+            if url and url.startswith('http') and 'placeholder' not in url.lower():
+                index = len(images)
+                images.append(url)
+                return f'[图片{index+1}]'
+            # No usable URL: drop the tag entirely instead of leaving a bare
+            # [图片] placeholder that pollutes downstream text analysis.
+            return ''
         # Match img tags with any of the common image attributes
         img_pattern = re.compile(r'<img[^>]+>', re.IGNORECASE)
         clean_html = img_pattern.sub(replace_img_tag, clean_html)
     else:
-        # Replace img tags with [图片] placeholder
-        clean_html = re.sub(r'<img[^>]+>', '[图片]', clean_html, flags=re.IGNORECASE)
+        # No images list (e.g. desc extraction): drop img tags entirely.
+        clean_html = re.sub(r'<img[^>]+>', '', clean_html, flags=re.IGNORECASE)
     
     # Remove all other tags
     clean_text = re.sub(r'<[^>]+>', '', clean_html)

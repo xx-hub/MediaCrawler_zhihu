@@ -22,9 +22,6 @@
 
 - ✅ **创作者主页爬取** - 获取知乎用户的所有回答，用于创建创作者分身的LLM微调数据集。
 
-
-
-
 ## 🚀 快速开始
 
 ### 📋 前置依赖
@@ -37,10 +34,11 @@
 
 项目依赖 Node.js 环境（用于知乎签名算法）：
 
-- **下载地址**：https://nodejs.org/en/download/
+- **下载地址**：<https://nodejs.org/en/download/>
 - **版本要求**：>= 16.0.0
 
 验证安装：
+
 ```bash
 node --version
 ```
@@ -51,6 +49,7 @@ node --version
 # 克隆项目
 git clone https://github.com/xx-hub/MediaCrawler_zhihu.git
 ```
+
 #### 方法 1：使用 uv（推荐）
 
 ```bash
@@ -138,13 +137,37 @@ uv run main.py
 ```
 
 程序会：
+
 1. 打开浏览器
 2. 显示二维码登录页面
 3. 用手机知乎 APP 扫码登录
-4. 自动爬取配置文件中创作者的所有回答
-### 2.运行结束后，手动运行tools/convert_to_jsonl.py，将问答数据转换为jsonl格式用于LLM微调
+4. 自动爬取配置文件中创作者的所有回答（支持断点续传，中断后从上次分页游标继续）
+
+### 2. 数据后处理（统一工具链）
+
+运行结束后，用 `tools/zhihu_export` 工具包处理数据：
+
 ```bash
-uv run tools/convert_to_jsonl.py
+# 合并所有 JSON 快照并导出为 Markdown（按 content_id 增量去重，建议先试跑）
+uv run python -m tools.zhihu_export.cli export-md --merge --limit 20
+
+# 按作者导出（推荐，每个创作者一个目录）
+uv run python -m tools.zhihu_export.cli export-md --merge --nickname 你的知乎昵称 --output data/zhihu/md-你的昵称
+
+# 导出 OpenAI 微调数据集（ChatML，问题标题+描述作为 user，回答作为 assistant）
+uv run python -m tools.zhihu_export.cli export-jsonl --merge
+
+# 质量过滤：只保留 >=100 字且赞同 >=10 的回答
+uv run python -m tools.zhihu_export.cli export-jsonl --merge --min-length 100 --min-votes 10
+
+# 按 content_id 去重
+uv run python -m tools.zhihu_export.cli dedupe --input data/zhihu/json/creator_contents_YYYY-MM-DD.json
+
+# 思维逻辑分析（统计用词体系、论证结构、跨学科概念，生成报告）
+uv run python -m tools.zhihu_export.cli analyze --md-dir data/zhihu/md-你的昵称 --author 你的昵称
+
+# 仅合并快照（增量合并多次爬取的结果）
+uv run python -m tools.zhihu_export.cli merge
 ```
 
 ## 💾 数据保存
@@ -152,18 +175,19 @@ uv run tools/convert_to_jsonl.py
 爬取的数据保存在 `data/zhihu/` 目录下：
 
 ```
-data/zhihu/
-├── json/                    # JSON 格式数据
-│   ├── creator_contents_YYYYMMDD.json  # 创作者内容
-
+data/
+├── zhihu/
+│   ├── json/                    # JSON 格式数据
+│   │   ├── creator_contents_YYYYMMDD.json  # 创作者内容（每次爬取一个快照）
+│   │   └── creator_creators_YYYYMMDD.json  # 创作者信息
+│   ├── md-昵称/                 # Markdown 格式（export-md 产出，每个回答一个文件）
+│   ├── analysis/                # 思维逻辑分析报告（analyze 产出）
+│   └── progress_creator.json    # 断点续传进度（page_offset = 分页游标）
+└── jsonl/                      # 用于LLM微调的jsonl格式数据（export-jsonl 产出）
 ```
-```
-data/jsonl/                  # 用于LLM微调的jsonl格式数据
-```
-
-
 
 其他信息请参考 [MediaCrawler](https://github.com/NanmiCoder/MediaCrawler) 项目。
+
 ## 📚 参考资料
 
 - [MediaCrawler 原项目](https://github.com/NanmiCoder/MediaCrawler)
